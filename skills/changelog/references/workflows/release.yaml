@@ -1,0 +1,128 @@
+name: Release
+run-name: Checking the changelog for a due release
+
+# The changelog decides: a push to main whose newest CHANGELOG.md entry names a
+# version no tag carries is a release. The tag is what a release ends on,
+# created when the draft is published, and nothing here is triggered by one.
+#
+# A push is linted, tested and built whether or not it releases. Draft, push
+# and publish wait on a release being due.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One release at a time: a draft belongs to the run that pinned it. GitHub
+# keeps a single waiting run per group, so a push arriving while another waits
+# cancels the waiting one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      due: ${{ steps.changelog.outputs.due }}
+      version: ${{ steps.changelog.outputs.version }}
+      notes: ${{ steps.changelog.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # The tag-dependent checks read the repository's tags, and a default
+          # checkout is shallow and carries none.
+          fetch-depth: 0
+      - id: changelog
+        uses: mikluko/changelog/actions/validate@v2
+        with:
+          # Notes are written into CHANGELOG.md, not into fragments.
+          fragments: ""
+          error: prerelease-entry
+
+  draft:
+    needs: plan
+    if: needs.plan.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # A draft carries no tag. --target names the commit publishing will tag,
+      # and left out it is whatever main points at by then. A draft that a
+      # failed run left behind is taken over and pinned to this commit.
+      - name: Open the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.plan.outputs.version }}
+          NOTES: ${{ needs.plan.outputs.notes }}
+        run: |
+          printf '%s\n' "$NOTES" >"$RUNNER_TEMP/notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            verb=edit
+          else
+            verb=create
+          fi
+          gh release "$verb" "$TAG" --draft --target "$GITHUB_SHA" \
+            --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+
+  # A push that releases nothing skips the draft, and a job needing a skipped
+  # one is skipped too unless its condition names a status.
+  lint:
+    needs: draft
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/lint.yaml
+
+  test:
+    needs: draft
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/test.yaml
+
+  build:
+    needs: [plan, draft]
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/build.yaml
+    with:
+      version: ${{ needs.plan.outputs.due == 'true' && needs.plan.outputs.version || '' }}
+
+  push:
+    needs: [plan, lint, test, build]
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.due == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: image
+          path: layout
+      - uses: imjasonh/setup-crane@v0.7
+        with:
+          version: v0.22.1
+      # The index goes up as build.yaml built it, under the digest that build
+      # printed.
+      - name: Push the image
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          image=$(printf 'ghcr.io/%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          crane push layout "$image:$VERSION"
+
+  publish:
+    needs: [plan, push]
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.due == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Publishing creates the tag, on the commit this run checked.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.plan.outputs.version }}
+        run: |
+          gh release edit "$TAG" --draft=false --target "$GITHUB_SHA"
+          echo "Released **$TAG**." >>"$GITHUB_STEP_SUMMARY"

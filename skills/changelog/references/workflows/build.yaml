@@ -1,0 +1,57 @@
+name: Build
+
+# One build for a pull request and for a release. The image is written as an
+# OCI layout and carried as a workflow artifact, so nothing reaches a registry
+# from here: release.yaml pushes what this left.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      version:
+        description: The version this build is released as, without the v. Empty for a build that releases nothing.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # The go command stamps the binary's version from the tags and the
+          # history, and a default checkout is shallow and carries neither.
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: ko-build/setup-ko@v0.10
+        with:
+          version: v0.19.1
+      # The program reads its version from debug.ReadBuildInfo, which reports
+      # the tag on the commit being built. A release's tag is created when the
+      # release is published, after this build, so the checkout gets it here.
+      - name: Tag the checkout
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: git tag "v$VERSION"
+      # ko reads the layout path as a repository name and refuses an uppercase
+      # letter in it, which an absolute path on a runner may carry.
+      - name: Build the image
+        run: |
+          ko build --push=false --oci-layout-path layout \
+            --platform linux/amd64,linux/arm64 \
+            --image-label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --image-label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            ./cmd/app
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image
+          path: layout
+          if-no-files-found: error
+          # Read by the run that built it and by nothing later.
+          retention-days: 1

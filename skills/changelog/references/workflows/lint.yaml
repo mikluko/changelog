@@ -1,0 +1,39 @@
+name: Lint
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+
+  # On main release.yaml reads the changelog itself. Here it is held to the
+  # branch a pull request merges into.
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # The tag-dependent checks read the repository's tags, and a default
+          # checkout is shallow and carries none.
+          fetch-depth: 0
+      - uses: mikluko/changelog/actions/validate@v2
+        with:
+          # Notes are written into CHANGELOG.md, not into fragments.
+          fragments: ""

@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: "Writing a changelog in the Keep a Changelog 2.0.0 shape as mikluko/changelog v2 checks it: what an entry is, the six change types, breaking and yanked markers, fragments in .changelog/ or notes in CHANGELOG.md, and cutting a version. Use when a change needs its changelog note, when adding a fragment or an entry, starting a changelog, cutting a version, reviewing a changelog, or drafting release notes from one."
+description: "Writing a changelog in the Keep a Changelog 2.0.0 shape as mikluko/changelog v2 checks it: what an entry is, the six change types, breaking and yanked markers, fragments in .changelog/ or notes in CHANGELOG.md, cutting a version, and the workflows of a changelog-based release flow. Use when a change needs its changelog note, when adding a fragment or an entry, starting a changelog, cutting a version, reviewing a changelog, drafting release notes from one, or setting up a repository's release workflows."
 ---
 
 # Changelog
@@ -171,6 +171,16 @@ go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest fold
 
 Release notes, where the host wants some, are the released section copied out, never a second
 record.
+
+## The changelog-based release flow
+
+A repository with no release workflow of its own takes the four GitHub workflows in
+[`references/workflows/`](references/workflows/) into `.github/workflows/`. There the changelog
+decides a release, and the tag is what the release ends on, never what starts it: a push to `main`
+whose newest entry names a version no tag carries opens a draft release, checks and builds the
+commit, pushes the image, and publishes the draft, which creates the tag. Read
+[`references/release-flow.md`](references/release-flow.md) before copying, adapting or debugging
+them.
 
 ## Checking
 

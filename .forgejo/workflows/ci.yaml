@@ -63,6 +63,7 @@ jobs:
           -ignore 'in invalid format because owner and repo and ref should not be empty'
           -ignore 'could not read reusable workflow file'
           .forgejo/workflows/*.yaml .github/workflows/*.yaml examples/*/workflows/*.yaml
+          skills/changelog/references/workflows/*.yaml
 
       # Built from source, so a pull request is checked by the code it changes
       # rather than by the last release of that code. prerelease-entry stays off

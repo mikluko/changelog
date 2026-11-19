@@ -586,8 +586,11 @@ document, and `sarak.sh/mikluko/changelog/v2/pkg/semver` and
 ## Agent skill
 
 [`skills/changelog/`](skills/changelog/SKILL.md) is an agent skill for writing
-a changelog this tool checks: entries, fragments, cutting a version. It is
-versioned with the tool, so the skill at a tag describes the tool at that tag.
+a changelog this tool checks: entries, fragments, cutting a version. Its
+[`references/workflows/`](skills/changelog/references/workflows/) are the GitHub
+workflows of a changelog-based release flow, where a release opens as a draft
+and publishing it creates the tag. It is versioned with the tool, so the skill
+at a tag describes the tool at that tag.
 
 ## Releasing
 
