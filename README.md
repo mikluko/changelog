@@ -76,6 +76,7 @@ Every input is optional.
 | `fail-on` | `error` | What turns the step red: `error`, `warning`, or `never`. |
 | `reference-tags` | `final` | Which tags may be the reference tag: `final`, or `all` to admit pre-releases. |
 | `due-prerelease` | `false` | Whether a pre-release counts as a release that is due: `true` or `false`. |
+| `flake-attr` | `default` | The package of the `flake.nix` beside the changelog whose version `manifest-version` compares, as in `nix eval .#<attr>.version`. |
 
 `Breaking` is not in the default vocabulary. Keep a Changelog 2.0.0 marks a
 breaking change inline as `**Breaking:**` inside the section it belongs to;
@@ -84,6 +85,10 @@ repositories that use it as a heading pass it in `sections`.
 `error`, `warn` and `off` are applied in that order, so a check named in two of
 them takes the later spelling. A name no check carries is refused rather than
 ignored. `fail-on: never` reports every finding and exits 0.
+
+A repository with a `flake.nix` beside its changelog has `manifest-version`
+evaluate it, and the action does not install nix: the workflow puts `nix` on
+the runner before the step, or switches the check off.
 
 ## The reference tag
 
@@ -228,6 +233,7 @@ annotation, and which is what `error`, `warn` and `off` take.
 | `prerelease-entry-modified` | `error` | A released pre-release entry is unchanged since the reference tag. |
 | `pending-date-mismatch` | `error` | A release that is due is dated the day a tag cut on HEAD would carry: the newest entry, where no tag names its version, states the committer date of HEAD, in the offset HEAD records, which is the day a lightweight tag cut there carries. While it fires the release is not due. Silent where the day is not known before the tag is cut, which is an annotated tag's, where the repository has no version tag to say which kind it cuts, for an entry the reference tag has frozen or one stating no date, and where the changelog is not the one HEAD records, as a release folded in and not yet committed is, since HEAD is then not the commit the tag will be cut on. |
 | `missing-fragment` | `error` | A pull request carries notes: a fragment its merge base with the base branch lacks, or a note the changelog there lacks, which is how a release branch assembling its entry carries them. Silent where no base branch is given, which is outside a pull request, and where no fragments directory is. |
+| `manifest-version` | `error` | The flake.nix beside the changelog states the version the newest entry names, as nix eval reads the version of the package flake-attr names. Where nix is not on PATH, or the flake has no such package, the check reports that it cannot run rather than passing. Silent where no flake.nix sits beside the changelog and where no entry names a version. The fragments-release forecast leaves it out, since the release commit is the one that sets the flake's version. |
 
 <!-- checks:end -->
 
@@ -578,6 +584,13 @@ go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest release
 go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest release -fragments .changelog
 ```
 
+The repository is also a Nix flake, whose `changelog` package (also `default`)
+is the command and whose `overlays.default` adds it to nixpkgs as `changelog`:
+
+```
+nix run git+https://sarak.sh/mikluko/changelog -- -list-checks
+```
+
 The Go packages the command is built on are importable:
 `sarak.sh/mikluko/changelog/v2/pkg/changelog` parses, checks and edits a
 document, and `sarak.sh/mikluko/changelog/v2/pkg/semver` and
@@ -631,6 +644,10 @@ cheaper way to find out whether a change is wanted.
 
 Every pull request carries its notes as a [fragment](#fragments) in
 `.changelog/`, never as an edit to `CHANGELOG.md`, which only a release writes.
+
+The repository's own `flake.nix` puts it under `manifest-version`, so validating
+it locally, as CI does with `go run ./cmd/changelog`, needs `nix` on `PATH`, or
+`-off manifest-version`.
 
 AI-assisted contributions are welcome too, and are asked to be attributed: name
 the tool in the pull request, or leave a `Co-authored-by:` trailer on the

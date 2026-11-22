@@ -60,6 +60,14 @@ inputs:
       Whether a pre-release counts as a release that is due: true or false.
     required: false
     default: "false"
+  flake-attr:
+    description: >-
+      The package of the flake.nix beside the changelog whose version
+      manifest-version compares with the newest entry, as in nix eval
+      .#<attr>.version. The action does not install nix; a workflow checking a
+      flake puts it on the runner before this step.
+    required: false
+    default: default
 
 outputs:
   valid:
@@ -140,6 +148,7 @@ runs:
         INPUT_FAIL_ON: ${{ inputs['fail-on'] }}
         INPUT_REFERENCE_TAGS: ${{ inputs['reference-tags'] }}
         INPUT_DUE_PRERELEASE: ${{ inputs['due-prerelease'] }}
+        INPUT_FLAKE_ATTR: ${{ inputs['flake-attr'] }}
       run: |
         exec "$BIN" \
           -changelog="$INPUT_CHANGELOG" \
@@ -151,4 +160,5 @@ runs:
           -off="$INPUT_OFF" \
           -fail-on="$INPUT_FAIL_ON" \
           -reference-tags="$INPUT_REFERENCE_TAGS" \
-          -due-prerelease="$INPUT_DUE_PRERELEASE"
+          -due-prerelease="$INPUT_DUE_PRERELEASE" \
+          -flake-attr="$INPUT_FLAKE_ATTR"

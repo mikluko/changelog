@@ -7,3 +7,4 @@
 !.golangci.yaml
 /dist/
 /changelog
+/result

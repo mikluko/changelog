@@ -67,6 +67,7 @@ func inspect() {
 		failOn     = flag.String("fail-on", "error", "exit non-zero on error, warning, or never")
 		refTags    = flag.String("reference-tags", "final", "which tags may be the reference tag: final or all")
 		duePre     = flag.Bool("due-prerelease", false, "let a pre-release count as a release that is due")
+		flakeAttr  = flag.String("flake-attr", "default", "package of the flake beside the changelog whose version manifest-version compares, as in nix eval .#<attr>.version")
 		listChecks = flag.Bool("list-checks", false, "print the checks and their default severities")
 	)
 	flag.Parse()
@@ -88,6 +89,9 @@ func inspect() {
 	admit, err := git.ParseEligible(*refTags)
 	if err != nil {
 		fail(err)
+	}
+	if strings.TrimSpace(*flakeAttr) == "" {
+		fail(errors.New("-flake-attr is empty; name the flake's package, as in default"))
 	}
 
 	repo := state(*path, admit)
@@ -115,7 +119,11 @@ func inspect() {
 	if err != nil {
 		fail(err)
 	}
-	findings = slices.Concat(findings, fragmentFindings, forecastFindings, missing)
+	manifest, err := lintManifest(*path, *flakeAttr, doc, opts, os.Stderr, os.Stdout)
+	if err != nil {
+		fail(err)
+	}
+	findings = slices.Concat(findings, fragmentFindings, forecastFindings, missing, manifest)
 	reason := dueReason(notDue(doc, repo, *duePre), findings)
 	if err := emit(outputs(doc, repo, findings, reason), os.Stdout); err != nil {
 		fail(err)

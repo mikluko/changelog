@@ -47,6 +47,13 @@ jobs:
       - uses: https://github.com/actions/setup-go@v6
         with:
           go-version-file: go.mod
+      # manifest-version evaluates flake.nix, here and in the smoke test of
+      # the published action.
+      - uses: https://github.com/cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            sandbox = false
 
       # This repository consumes its own action, built from source rather than
       # downloaded. The binary for the release being cut does not exist yet,

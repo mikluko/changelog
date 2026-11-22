@@ -158,7 +158,9 @@ its notes call for, dated today in UTC, opens a fresh `[Unreleased]` above it, a
 `[Unreleased]` foot link compares against `HEAD`, moves it to the new tag and adds the version's.
 `-version X.Y.Z` names the version instead of computing it, `-date YYYY-MM-DD` dates it, and
 `-fragments ""` folds nothing. It refuses an `[Unreleased]` with no notes and a version not above
-every one the file names. The tag is cut afterwards, from the file.
+every one the file names. The tag is cut afterwards, from the file. Where a `flake.nix` sits beside
+the changelog, the commit cutting the version sets the flake's version to it, or `manifest-version`
+fails.
 
 A release prepared on a branch of its own is an open entry: `## [X.Y.Z]` with no date, which
 `release -open` writes and the pull request merging the branch to the trunk dates. The branch's

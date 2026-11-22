@@ -89,6 +89,10 @@ jobs:
           ref: ${{ env.TAG }}
           fetch-depth: 0
 
+      # manifest-version evaluates the flake.nix a tag carries.
+      - uses: cachix/install-nix-action@v31
+        if: hashFiles('flake.nix') != ''
+
       - name: Run the published action
         id: smoke
         if: hashFiles('actions/validate/action.yaml') != ''

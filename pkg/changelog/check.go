@@ -70,6 +70,7 @@ const (
 	CheckPrereleaseEntryModified = "prerelease-entry-modified"
 	CheckMissingFragment         = "missing-fragment"
 	CheckPendingDateMismatch     = "pending-date-mismatch"
+	CheckManifestVersion         = "manifest-version"
 )
 
 // Check is one thing the linter looks for.
@@ -207,6 +208,11 @@ var Checks = []Check{
 	{
 		Name:        CheckMissingFragment,
 		Description: "A pull request carries notes: a fragment its merge base with the base branch lacks, or a note the changelog there lacks, which is how a release branch assembling its entry carries them. Silent where no base branch is given, which is outside a pull request, and where no fragments directory is.",
+		Default:     Error,
+	},
+	{
+		Name:        CheckManifestVersion,
+		Description: "The flake.nix beside the changelog states the version the newest entry names, as nix eval reads the version of the package flake-attr names. Where nix is not on PATH, or the flake has no such package, the check reports that it cannot run rather than passing. Silent where no flake.nix sits beside the changelog and where no entry names a version. The fragments-release forecast leaves it out, since the release commit is the one that sets the flake's version.",
 		Default:     Error,
 	},
 }
