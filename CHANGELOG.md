@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-22
+
+### Added
+
+- `manifest-version` check: the `flake.nix` beside the changelog states the version the newest entry names, read with `nix eval .#<attr>.version`. Where `nix` is not on `PATH` or the flake has no such package, it is a finding rather than a pass, so a repository with a `flake.nix` puts `nix` on the runner or switches the check off.
+- `flake-attr` input and `-flake-attr` flag: the flake package `manifest-version` reads, `default` unless set.
+- `Manifest` and `Changelog.LintManifest` in `pkg/changelog`.
+- `flake.nix`: the command as the flake's `changelog` package, and `overlays.default` adding it to nixpkgs.
+- `skills/changelog/references/workflows/`: the GitHub workflows of a changelog-based release flow, where a release opens as a draft and publishing it creates the tag.
+
+### Changed
+
+- The GitHub mirror is `mikluko/changelog`, and a GitHub workflow names the actions as `mikluko/changelog/actions/validate@v2`; `mikluko/action-changelog` is archived at 2.2.0 and receives no later release.
+
 ## [2.2.0] - 2026-11-14
 
 ### Added
@@ -419,7 +433,8 @@ recorded separately: nothing consumed them but this repository.
   candidate can be pulled and tested before it merges, and one reaching `main`
   is refused rather than published.
 
-[Unreleased]: https://github.com/mikluko/changelog/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/mikluko/changelog/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/mikluko/changelog/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mikluko/changelog/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mikluko/changelog/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/mikluko/changelog/compare/v2.0.0...v2.0.1
