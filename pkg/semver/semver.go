@@ -45,6 +45,49 @@ func (v Version) String() string {
 // section 9 says denotes a version not yet stable.
 func (v Version) Prerelease() bool { return len(v.Pre) > 0 }
 
+// Level is the component of a version a bump raises.
+type Level int
+
+const (
+	Patch Level = iota + 1
+	Minor
+	Major
+)
+
+var levelNames = map[Level]string{Patch: "patch", Minor: "minor", Major: "major"}
+
+func (l Level) String() string {
+	if name, ok := levelNames[l]; ok {
+		return name
+	}
+	return "Level(" + strconv.Itoa(int(l)) + ")"
+}
+
+// ParseLevel reads "major", "minor" or "patch".
+func ParseLevel(s string) (Level, error) {
+	for l, name := range levelNames {
+		if s == name {
+			return l, nil
+		}
+	}
+	return 0, fmt.Errorf("bump level %q is none of major, minor and patch", s)
+}
+
+// Bump returns the final version raising l by one and zeroing the components
+// below it, as sections 7 and 8 require; the pre-release and build parts are
+// dropped. It panics on a Level none of Major, Minor and Patch.
+func (v Version) Bump(l Level) Version {
+	switch l {
+	case Major:
+		return Version{Major: v.Major + 1}
+	case Minor:
+		return Version{Major: v.Major, Minor: v.Minor + 1}
+	case Patch:
+		return Version{Major: v.Major, Minor: v.Minor, Patch: v.Patch + 1}
+	}
+	panic("semver: bump by " + l.String())
+}
+
 // Rule names the requirement a version string broke, so a caller reporting a
 // rejection can say which rule it hit rather than restating the grammar.
 type Rule string

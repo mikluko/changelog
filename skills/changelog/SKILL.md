@@ -64,7 +64,8 @@ omitted, never left as an empty heading.
 
 The types also set the version a computed release takes: a `**Breaking:**` note makes it major
 (minor below 1.0.0), any type other than `Fixed` and `Security` minor, and `Fixed` or `Security`
-alone a patch. Pick the type by the change, never by the bump it buys.
+alone a patch. Pick the type by the change, never by the bump it buys: a repository whose version
+scheme fixes the bump passes `-bump` to `release` instead.
 
 ```
 - CVE-2024-12345: out-of-bounds read when parsing malformed input.
@@ -156,7 +157,8 @@ go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest release
 It folds every fragment into `[Unreleased]` and deletes them, renames `[Unreleased]` to the version
 its notes call for, dated today in UTC, opens a fresh `[Unreleased]` above it, and, where the
 `[Unreleased]` foot link compares against `HEAD`, moves it to the new tag and adds the version's.
-`-version X.Y.Z` names the version instead of computing it, `-date YYYY-MM-DD` dates it, and
+`-version X.Y.Z` names the version instead of computing it, `-bump major|minor|patch` bumps the
+newest final version by that level whatever the notes call for, `-date YYYY-MM-DD` dates it, and
 `-fragments ""` folds nothing. It refuses an `[Unreleased]` with no notes and a version not above
 every one the file names. The tag is cut afterwards, from the file. Where a `flake.nix` sits beside
 the changelog, the commit cutting the version sets the flake's version to it, or `manifest-version`

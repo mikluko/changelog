@@ -89,6 +89,7 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 		path      = fs.String("changelog", "CHANGELOG.md", "path to the changelog")
 		fragments = fs.String("fragments", ".changelog", "directory of fragments to fold into [Unreleased] and delete; none when empty")
 		version   = fs.String("version", "", "version to release; computed from the notes when empty")
+		bump      = fs.String("bump", "", "major, minor or patch: bump the newest final version by that level whatever the notes call for")
 		date      = fs.String("date", "", "release date as YYYY-MM-DD; today in UTC when empty")
 		open      = fs.Bool("open", false, "write an open entry, naming the version and no date")
 	)
@@ -100,6 +101,13 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	}
 	if *open && *date != "" {
 		return errors.New("-open writes no date, so -date has nothing to set")
+	}
+	level, err := releaseLevel(*bump)
+	if err != nil {
+		return err
+	}
+	if level != 0 && strings.TrimSpace(*version) != "" {
+		return errors.New("-version names the version, so -bump has nothing to compute")
 	}
 	day := *date
 	switch {
@@ -119,6 +127,13 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	}
 	var released semver.Version
 	err = rewrite(*path, func(src []byte) ([]byte, error) {
+		if level != 0 {
+			v, err := changelog.Parse(src).Bump(level)
+			if err != nil {
+				return nil, err
+			}
+			given = &v
+		}
 		out, v, err := changelog.ReleaseFragments(src, frags, given, day)
 		released = v
 		return out, err
@@ -159,6 +174,15 @@ func releaseVersion(given string) (*semver.Version, error) {
 		return nil, err
 	}
 	return &v, nil
+}
+
+// releaseLevel is the bump level given, or zero where none is, which leaves the
+// version to -version or the notes.
+func releaseLevel(given string) (semver.Level, error) {
+	if given = strings.TrimSpace(given); given == "" {
+		return 0, nil
+	}
+	return semver.ParseLevel(given)
 }
 
 // rewrite applies edit to the file at path and writes the result back with the

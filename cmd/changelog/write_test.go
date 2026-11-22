@@ -71,6 +71,42 @@ func TestReleaseCmdGivenVersionAndOpen(t *testing.T) {
 	}
 }
 
+func TestReleaseCmdBumpsByTheLevelGiven(t *testing.T) {
+	path, dir := fragmentDir(t, unreleased, map[string]string{"pin.md": "### Changed\n\n- c\n"})
+	var out bytes.Buffer
+	if err := releaseCmd([]string{"-changelog", path, "-fragments", dir, "-bump", "patch"}, &out, os.Stderr, fixed(t)); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), "## [Unreleased]\n\n## [1.2.4] - 2020-02-02\n\n### Changed\n\n- c\n") {
+		t.Errorf("not released as 1.2.4:\n%s", got)
+	}
+	if !strings.Contains(out.String(), "version=1.2.4\n") {
+		t.Errorf("outputs: %s", out.String())
+	}
+}
+
+func TestReleaseCmdRefusesBump(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"with a version", []string{"-bump", "patch", "-version", "1.2.4"}},
+		{"an unknown level", []string{"-bump", "pre"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := write(t, unreleased)
+			args := append([]string{"-fragments", "", "-changelog", path}, tc.args...)
+			if err := releaseCmd(args, os.Stdout, os.Stderr, fixed(t)); err == nil {
+				t.Error("no error")
+			}
+			if got, _ := os.ReadFile(path); string(got) != unreleased {
+				t.Errorf("the file changed:\n%s", got)
+			}
+		})
+	}
+}
+
 func TestReleaseCmdRefusesOpenWithDate(t *testing.T) {
 	path := write(t, unreleased)
 	if err := releaseCmd([]string{"-fragments", "", "-changelog", path, "-open", "-date", "2020-02-02"}, os.Stdout, os.Stderr, fixed(t)); err == nil {

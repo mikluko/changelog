@@ -430,40 +430,54 @@ func compareHEAD(dest string) (base, prev string, ok bool) {
 // document to have no [Unreleased] notes or no final version to bump from.
 func (c *Changelog) Next() (semver.Version, error) {
 	var (
-		notes string
-		found bool
-		base  semver.Version
-		has   bool
+		notes    string
+		sections []Section
+		found    bool
 	)
-	var sections []Section
 	for _, e := range c.Entries {
-		if e.Unreleased && !found {
+		if e.Unreleased {
 			notes, sections, found = e.Body, e.Sections, true
-			continue
-		}
-		if e.Version != "" && !e.Semver.Prerelease() && !has {
-			base, has = e.Semver, true
+			break
 		}
 	}
 	if !found || notes == "" {
 		return semver.Version{}, errors.New("the [Unreleased] entry has no notes to release")
 	}
-	if !has {
-		return semver.Version{}, errors.New("the changelog names no final version to bump from")
+	base, err := c.finalBase()
+	if err != nil {
+		return semver.Version{}, err
 	}
-
-	next := semver.Version{Major: base.Major, Minor: base.Minor, Patch: base.Patch}
 	switch {
 	case breaking(notes, sections) && base.Major > 0:
-		next.Major, next.Minor, next.Patch = base.Major+1, 0, 0
+		return base.Bump(semver.Major), nil
 	case breaking(notes, sections) || slices.ContainsFunc(sections, func(s Section) bool {
 		return !strings.EqualFold(s.Name, "Fixed") && !strings.EqualFold(s.Name, "Security")
 	}):
-		next.Minor, next.Patch = base.Minor+1, 0
+		return base.Bump(semver.Minor), nil
 	default:
-		next.Patch = base.Patch + 1
+		return base.Bump(semver.Patch), nil
 	}
-	return next, nil
+}
+
+// Bump returns the newest entry naming a final version bumped by level,
+// whatever the [Unreleased] notes call for. Major bumps the major version
+// below 1.0.0 too. It is an error for the document to name no final version.
+func (c *Changelog) Bump(level semver.Level) (semver.Version, error) {
+	base, err := c.finalBase()
+	if err != nil {
+		return semver.Version{}, err
+	}
+	return base.Bump(level), nil
+}
+
+// finalBase returns the version of the newest entry naming a final version.
+func (c *Changelog) finalBase() (semver.Version, error) {
+	for _, e := range c.Entries {
+		if e.Version != "" && !e.Semver.Prerelease() {
+			return e.Semver, nil
+		}
+	}
+	return semver.Version{}, errors.New("the changelog names no final version to bump from")
 }
 
 func breaking(body string, sections []Section) bool {

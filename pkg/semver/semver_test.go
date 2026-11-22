@@ -338,3 +338,33 @@ func join(ids []string) string {
 	}
 	return out
 }
+
+func TestBump(t *testing.T) {
+	v := Version{Major: 1, Minor: 2, Patch: 3, Pre: []string{"rc", "1"}, Build: []string{"b"}}
+	for _, tc := range []struct {
+		level Level
+		want  string
+	}{
+		{Major, "2.0.0"},
+		{Minor, "1.3.0"},
+		{Patch, "1.2.4"},
+	} {
+		if got := v.Bump(tc.level).String(); got != tc.want {
+			t.Errorf("%s bump of %s: got %s, want %s", tc.level, v, got, tc.want)
+		}
+	}
+}
+
+func TestParseLevel(t *testing.T) {
+	for _, l := range []Level{Major, Minor, Patch} {
+		got, err := ParseLevel(l.String())
+		if err != nil || got != l {
+			t.Errorf("ParseLevel(%q) = %v, %v", l.String(), got, err)
+		}
+	}
+	for _, s := range []string{"", "Major", "pre", "1"} {
+		if _, err := ParseLevel(s); err == nil {
+			t.Errorf("ParseLevel(%q): no error", s)
+		}
+	}
+}

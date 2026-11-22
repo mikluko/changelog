@@ -229,3 +229,38 @@ func TestNextRefuses(t *testing.T) {
 		})
 	}
 }
+
+func TestBump(t *testing.T) {
+	const (
+		breaking = "## [Unreleased]\n\n### Changed\n\n- **Breaking:** b\n\n"
+		prior    = "## [1.3.0-rc.1] - 2020-02-01\n\n- r\n\n## [26.5.3] - 2020-01-01\n\n- x\n"
+	)
+	for _, tc := range []struct {
+		name  string
+		level semver.Level
+		src   string
+		want  string
+	}{
+		{"patch over a breaking note", semver.Patch, breaking + prior, "26.5.4"},
+		{"minor", semver.Minor, breaking + prior, "26.6.0"},
+		{"major", semver.Major, "## [Unreleased]\n\n" + prior, "27.0.0"},
+		{"major below 1.0.0", semver.Major, "## [Unreleased]\n\n- a\n\n## [0.4.1] - 2020-01-01\n\n- x\n", "1.0.0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := Parse([]byte(head + tc.src)).Bump(tc.level)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.String() != tc.want {
+				t.Errorf("got %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBumpRefusesNothingToBumpFrom(t *testing.T) {
+	src := head + "## [Unreleased]\n\n- a\n\n## [1.0.0-rc.1] - 2020-01-01\n\n- r\n"
+	if _, err := Parse([]byte(src)).Bump(semver.Patch); err == nil {
+		t.Error("no error")
+	}
+}

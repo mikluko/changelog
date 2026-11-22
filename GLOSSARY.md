@@ -127,9 +127,14 @@ _Avoid_: merge, collect, compile
 
 **Bump**:
 The version release computes when given none: from the newest final version,
-major for a breaking marker or a `Breaking` section, minor for any section but Fixed and Security, patch
+by the bump level named where one is, and otherwise major for a breaking marker
+or a `Breaking` section, minor for any section but Fixed and Security, patch
 otherwise.
 _Avoid_: next version (bare), increment
+
+**Bump level**:
+The component a bump raises, major, minor or patch, zeroing those below it.
+_Avoid_: bump type, increment, part
 
 ### Ceremonies
 
@@ -192,7 +197,7 @@ ceremony)
 - **Fragment → Fold → `[Unreleased]`**: release folds the fragments into `[Unreleased]` before releasing it, so a fragment's notes reach a version through `[Unreleased]` like any other
 - **Fragment → Fold → Open entry**: on a stabilization branch the fragments fold into the open entry, which the merge to the trunk dates
 - **Release → `[Unreleased]`**: release turns `[Unreleased]` into an open or released entry, and opens an empty `[Unreleased]` above it
-- **Bump → Released entry, Section, Breaking marker**: the bump starts from the newest final version and is decided by the sections and breaking markers `[Unreleased]` carries
+- **Bump → Released entry, Section, Breaking marker**: the bump starts from the newest final version and is decided by the sections and breaking markers `[Unreleased]` carries, unless a bump level is named
 - **Writer → Ceremony**: a writer changes the file and nothing else; committing it and the ceremony that follows are downstream
 
 ### Ceremonies

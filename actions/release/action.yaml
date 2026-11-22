@@ -23,6 +23,13 @@ inputs:
       minor for any section but Fixed and Security, patch otherwise.
     required: false
     default: ""
+  bump:
+    description: >-
+      The level to bump the newest final version by, whatever the notes call
+      for: major, minor or patch. Empty leaves the version to the version
+      input or the notes. Given with version, the release is refused.
+    required: false
+    default: ""
   date:
     description: The release date as YYYY-MM-DD. Empty is today in UTC.
     required: false
@@ -62,6 +69,7 @@ runs:
         INPUT_CHANGELOG: ${{ inputs.changelog }}
         INPUT_FRAGMENTS: ${{ inputs.fragments }}
         INPUT_VERSION: ${{ inputs.version }}
+        INPUT_BUMP: ${{ inputs.bump }}
         INPUT_DATE: ${{ inputs.date }}
         INPUT_OPEN: ${{ inputs.open }}
       run: |
@@ -69,5 +77,6 @@ runs:
           -changelog="$INPUT_CHANGELOG" \
           -fragments="$INPUT_FRAGMENTS" \
           -version="$INPUT_VERSION" \
+          -bump="$INPUT_BUMP" \
           -date="$INPUT_DATE" \
           -open="$INPUT_OPEN"

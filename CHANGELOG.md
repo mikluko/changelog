@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-22
+
+### Added
+
+- `bump` input on `release` and `-bump` flag: `major`, `minor` or `patch` bumps the newest final version by that level whatever the `[Unreleased]` sections call for, so a repository whose version scheme fixes the bump no longer reads the newest version itself to pass `version`. Given with `version`, the release is refused.
+- `Level`, `ParseLevel` and `Version.Bump` in `pkg/semver`, and `Changelog.Bump` in `pkg/changelog`.
+
 ## [2.3.0] - 2026-11-22
 
 ### Added
@@ -433,7 +440,8 @@ recorded separately: nothing consumed them but this repository.
   candidate can be pulled and tested before it merges, and one reaching `main`
   is refused rather than published.
 
-[Unreleased]: https://github.com/mikluko/changelog/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/mikluko/changelog/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/mikluko/changelog/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mikluko/changelog/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mikluko/changelog/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mikluko/changelog/compare/v2.0.1...v2.1.0

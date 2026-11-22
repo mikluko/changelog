@@ -425,6 +425,7 @@ Turns the `[Unreleased]` entry into a versioned one and opens a new, empty
 | `changelog` | `CHANGELOG.md` | Path to the changelog, relative to the workspace. |
 | `fragments` | `.changelog` | Directory of [fragments](#fragments) to fold into `[Unreleased]` first and delete. Empty folds none. |
 | `version` | *(empty)* | The version to release. Empty computes it from the notes. |
+| `bump` | *(empty)* | `major`, `minor` or `patch`: the level to bump the newest final version by, whatever the notes call for. Refused with `version`. |
 | `date` | *(empty)* | The release date as `YYYY-MM-DD`. Empty is today in UTC. |
 | `open` | `false` | `true` writes an [open entry](#two-worked-policies), naming the version and no date. |
 
@@ -441,6 +442,11 @@ A computed version is bumped from the newest entry naming a final version:
 | a `Breaking` section, or a note opening with `**Breaking:**` | major; minor below 1.0.0 |
 | any section other than `Fixed` and `Security` | minor |
 | `Fixed` and `Security` only, or no sections | patch |
+
+A repository whose version scheme fixes the bump names it in `bump` instead. One
+versioned `YY.M.PATCH` after the platform release it pins takes `26.5.3` to
+`26.5.4` with `bump: patch` for a note under `Changed`, which alone would call
+for `26.6.0`. `bump: major` below 1.0.0 releases `1.0.0`.
 
 Where the `[Unreleased]` link reference is a compare URL ending in `...HEAD`, it
 is moved to start at the new tag and a link reference for the release is added
