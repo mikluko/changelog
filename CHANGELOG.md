@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-25
+
+### Added
+
+- `release -prerelease`, and the `prerelease` input of the `release` action, report the next pre-release of the version, `X-pre.N` numbered from the `vX-pre.N` tags, and write nothing.
+
 ## [2.4.0] - 2026-11-22
 
 ### Added
@@ -440,7 +446,8 @@ recorded separately: nothing consumed them but this repository.
   candidate can be pulled and tested before it merges, and one reaching `main`
   is refused rather than published.
 
-[Unreleased]: https://github.com/mikluko/changelog/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/mikluko/changelog/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/mikluko/changelog/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/mikluko/changelog/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mikluko/changelog/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mikluko/changelog/compare/v2.1.0...v2.2.0
