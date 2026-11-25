@@ -575,6 +575,13 @@ To validate a changelog elsewhere, where `<path>` is its path:
 go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest -changelog <path>
 ```
 
+To print the version the newest entry names, reading the file alone, with no
+git history and no checks:
+
+```
+go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest version
+```
+
 To print the checks and their default severities:
 
 ```
@@ -596,6 +603,40 @@ is the command and whose `overlays.default` adds it to nixpkgs as `changelog`:
 ```
 nix run git+https://sarak.sh/mikluko/changelog -- -list-checks
 ```
+
+Its `lib` takes a project's version and checks from its changelog. Both run
+the command at evaluation or build time, built from this flake's own nixpkgs:
+
+| Function | Gives |
+|---|---|
+| `lib.version pkgs ./CHANGELOG.md` | the version the newest entry names, read at evaluation time (import from derivation); evaluation fails where the changelog names none |
+| `lib.check pkgs { src; fragments ? ".changelog"; off ? [ ]; }` | a derivation that builds where the changelog and fragments in `src` pass every check that needs no git history; `no-git-tags` and `manifest-version` are off, and `off` switches off more |
+
+A project taking its version from `lib.version` states in `flake.nix` the
+version its newest entry names by construction, so `manifest-version` passes
+with no release commit setting it:
+
+```nix
+{
+  inputs.changelog.url = "git+https://sarak.sh/mikluko/changelog?ref=v2";
+
+  outputs = { nixpkgs, changelog, ... }:
+    let
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    in
+    {
+      packages.x86_64-linux.default = pkgs.buildGoModule {
+        pname = "app";
+        version = changelog.lib.version pkgs ./CHANGELOG.md;
+        # ...
+      };
+      checks.x86_64-linux.changelog = changelog.lib.check pkgs { src = ./.; };
+    };
+}
+```
+
+The checks comparing against tags or a base branch, `missing-fragment` and
+`release-entry-modified` among them, need a checkout and stay with CI.
 
 The Go packages the command is built on are importable:
 `sarak.sh/mikluko/changelog/v2/pkg/changelog` parses, checks and edits a

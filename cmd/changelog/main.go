@@ -1,5 +1,6 @@
 // Command changelog reads a Keep a Changelog document and reports where
-// it departs from the format; its append and release subcommands edit it.
+// it departs from the format; its append and release subcommands edit it, and
+// version prints the version its newest entry names.
 //
 // It runs as a GitHub Action and as a local command; under GitHub Actions each
 // finding is additionally emitted as a workflow annotation, so a failing check
@@ -35,9 +36,11 @@ func main() {
 			err = foldCmd(os.Args[2:], os.Stderr)
 		case "release":
 			err = releaseCmd(os.Args[2:], os.Stdout, os.Stderr, time.Now)
+		case "version":
+			err = versionCmd(os.Args[2:], os.Stdout, os.Stderr)
 		default:
 			if !strings.HasPrefix(os.Args[1], "-") {
-				fail(fmt.Errorf("%q is not a subcommand: append, fold, release, or none to read the changelog", os.Args[1]))
+				fail(fmt.Errorf("%q is not a subcommand: append, fold, release, version, or none to read the changelog", os.Args[1]))
 			}
 			inspect()
 			return

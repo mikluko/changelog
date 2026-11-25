@@ -76,6 +76,9 @@ jobs:
       - name: The flake builds
         if: ${{ !cancelled() }}
         run: nix build -L .#changelog
+      - name: The flake's checks pass
+        if: ${{ !cancelled() }}
+        run: nix flake check -L
 
       # Built from source, so a pull request is checked by the code it changes
       # rather than by the last release of that code. prerelease-entry stays off
