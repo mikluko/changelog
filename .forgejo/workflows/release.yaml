@@ -6,7 +6,9 @@ name: Release
 # names. Nothing else cuts a tag here, and a tag pushed by hand is not a path.
 #
 # A pre-release reaching main means a candidate was released rather than
-# promoted, and this refuses it.
+# promoted, and this refuses it. A pre-release is cut by the prerelease input: its
+# release commit carries the entry and actions/VERSION install.sh reads, and
+# only its tag is pushed, so main keeps the fragments for the final release.
 #
 # The refusal reads the prerelease output rather than raising the
 # prerelease-entry check, and the difference matters. The check fires on every
@@ -26,6 +28,10 @@ on:
         description: The version to release. Empty computes it from the notes.
         required: false
         default: ""
+      prerelease:
+        description: Cut the next pre-release of the version instead, and leave main as it is.
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -66,11 +72,24 @@ jobs:
         id: before
         run: go run ./cmd/changelog -changelog CHANGELOG.md -fragments .changelog -fail-on never
 
+      - name: Number the pre-release
+        id: number
+        if: inputs.prerelease
+        env:
+          DUE: ${{ steps.before.outputs.due }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$DUE" = true ]; then
+            echo "::error::main carries a release that was never tagged. Release it before cutting a pre-release."
+            exit 1
+          fi
+          go run ./cmd/changelog release -changelog CHANGELOG.md -fragments .changelog -prerelease -version "$VERSION"
+
       - name: Fold the fragments into a release
         id: fold
         if: steps.before.outputs.due != 'true'
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.number.outputs.version || inputs.version }}
         run: go run ./cmd/changelog release -changelog CHANGELOG.md -fragments .changelog -version "$VERSION"
 
       - name: Name the release in actions/VERSION
@@ -94,8 +113,9 @@ jobs:
           REASON: ${{ steps.changelog.outputs['due-reason'] }}
           VERSION: ${{ steps.changelog.outputs.version }}
           PRERELEASE: ${{ steps.changelog.outputs.prerelease }}
+          ASKED: ${{ inputs.prerelease }}
         run: |
-          if [ "$PRERELEASE" = true ]; then
+          if [ "$PRERELEASE" = true ] && [ "$ASKED" != true ]; then
             echo "::error::the release names $VERSION, a pre-release. Release a final version from main."
             exit 1
           fi
@@ -136,11 +156,15 @@ jobs:
         if: steps.before.outputs.due != 'true'
         env:
           VERSION: ${{ steps.cut.outputs.version }}
+          ASKED: ${{ inputs.prerelease }}
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@noreply.sarak.sh"
-          git commit -am "release: $VERSION"
-          git push origin HEAD:refs/heads/main
+          git add -A CHANGELOG.md .changelog actions/VERSION
+          git commit -m "release: $VERSION"
+          if [ "$ASKED" != true ]; then
+            git push origin HEAD:refs/heads/main
+          fi
 
       - name: Cut the tag
         env:
@@ -158,11 +182,12 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.cut.outputs.tag }}
           NOTES: ${{ steps.changelog.outputs.notes }}
+          ASKED: ${{ inputs.prerelease }}
         run: |
           api="${GITHUB_API_URL:-$GITHUB_SERVER_URL/api/v1}/repos/$GITHUB_REPOSITORY"
           printf '%s\n' "$NOTES" >"$RUNNER_TEMP/notes.md"
-          jq -n --arg tag "$TAG" --rawfile body "$RUNNER_TEMP/notes.md" \
-            '{tag_name: $tag, name: $tag, body: $body}' >"$RUNNER_TEMP/release.json"
+          jq -n --arg tag "$TAG" --rawfile body "$RUNNER_TEMP/notes.md" --argjson pre "$ASKED" \
+            '{tag_name: $tag, name: $tag, body: $body, prerelease: $pre}' >"$RUNNER_TEMP/release.json"
           # The pushed tag makes Forgejo record a release of its own for it,
           # asynchronously. A request racing that record fails on the unique
           # tag; once the record exists, the same request turns it into this
@@ -243,10 +268,9 @@ jobs:
           esac
 
       # Last, because it is the reference consumers follow and it should move
-      # only once everything above it is in place. No pre-release reaches here,
-      # so it always names a final version.
+      # only once everything above it is in place. A pre-release never moves it.
       - name: Move the major tag
-        if: steps.cut.outputs.due == 'true'
+        if: steps.cut.outputs.due == 'true' && !inputs.prerelease
         env:
           MAJOR: ${{ steps.cut.outputs.major }}
         run: |

@@ -86,12 +86,13 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	fs := flag.NewFlagSet("release", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var (
-		path      = fs.String("changelog", "CHANGELOG.md", "path to the changelog")
-		fragments = fs.String("fragments", ".changelog", "directory of fragments to fold into [Unreleased] and delete; none when empty")
-		version   = fs.String("version", "", "version to release; computed from the notes when empty")
-		bump      = fs.String("bump", "", "major, minor or patch: bump the newest final version by that level whatever the notes call for")
-		date      = fs.String("date", "", "release date as YYYY-MM-DD; today in UTC when empty")
-		open      = fs.Bool("open", false, "write an open entry, naming the version and no date")
+		path       = fs.String("changelog", "CHANGELOG.md", "path to the changelog")
+		fragments  = fs.String("fragments", ".changelog", "directory of fragments to fold into [Unreleased] and delete; none when empty")
+		version    = fs.String("version", "", "version to release; computed from the notes when empty")
+		bump       = fs.String("bump", "", "major, minor or patch: bump the newest final version by that level whatever the notes call for")
+		date       = fs.String("date", "", "release date as YYYY-MM-DD; today in UTC when empty")
+		open       = fs.Bool("open", false, "write an open entry, naming the version and no date")
+		prerelease = fs.Bool("prerelease", false, "print the next pre-release of the version, numbered from the tags, and write nothing")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -99,8 +100,8 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	if fs.NArg() > 0 {
 		return fmt.Errorf("release takes no arguments, got %q", fs.Args())
 	}
-	if *open && *date != "" {
-		return errors.New("-open writes no date, so -date has nothing to set")
+	if err := releaseConflicts(*open, *prerelease, *date); err != nil {
+		return err
 	}
 	level, err := releaseLevel(*bump)
 	if err != nil {
@@ -120,6 +121,9 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	given, err := releaseVersion(*version)
 	if err != nil {
 		return err
+	}
+	if *prerelease {
+		return releasePrerelease(*path, *fragments, given, level, stdout)
 	}
 	consumed, frags, err := readFragments(*fragments)
 	if err != nil {
@@ -151,6 +155,18 @@ func releaseCmd(args []string, stdout, stderr io.Writer, now func() time.Time) e
 	}
 	entry, _ := changelog.Parse(src).Find(released.String())
 	return emit(releaseOutputs(released, entry.Body), stdout)
+}
+
+// releaseConflicts refuses the release flags that leave one another nothing
+// to set.
+func releaseConflicts(open, prerelease bool, date string) error {
+	switch {
+	case open && date != "":
+		return errors.New("-open writes no date, so -date has nothing to set")
+	case prerelease && (open || date != ""):
+		return errors.New("-prerelease writes no entry, so -open and -date have nothing to set")
+	}
+	return nil
 }
 
 // releaseOutputs is what a workflow reads after a release: the version

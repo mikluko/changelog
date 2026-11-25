@@ -428,6 +428,7 @@ Turns the `[Unreleased]` entry into a versioned one and opens a new, empty
 | `bump` | *(empty)* | `major`, `minor` or `patch`: the level to bump the newest final version by, whatever the notes call for. Refused with `version`. |
 | `date` | *(empty)* | The release date as `YYYY-MM-DD`. Empty is today in UTC. |
 | `open` | `false` | `true` writes an [open entry](#two-worked-policies), naming the version and no date. |
+| `prerelease` | `false` | `true` writes nothing and reports the next [pre-release](#pre-releases) of the version instead. Refused with `open` or `date`. |
 
 | Output | Example | Description |
 |---|---|---|
@@ -456,6 +457,19 @@ that URL is.
 The action refuses an `[Unreleased]` entry with no notes, a version not above
 every version the document names, and a document whose newest versioned entry
 is still open.
+
+#### Pre-releases
+
+With `prerelease: true` the action computes the version as it would release it,
+and reports `X-pre.N` in its place: `N` is one above the highest among the tags
+`vX-pre.N`, or 1 where there is none. The changelog and the fragments are left
+as they are, so a workflow tags the commit `v$version` and the final release
+later folds the same notes as `X`. `notes` is what the entry for `X` would
+carry.
+
+The number is counted from the tags in the checkout, which has to be a full one:
+a shallow checkout is refused. A tag spelling a pre-release any other way, as in
+`vX-pre1` or `vX-rc.1`, is not counted, and a pre-release `version` is refused.
 
 ### Fragments
 
