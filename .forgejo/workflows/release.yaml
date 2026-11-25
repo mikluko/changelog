@@ -26,6 +26,7 @@ on:
     inputs:
       version:
         description: The version to release. Empty computes it from the notes.
+        type: string
         required: false
         default: ""
       prerelease:
