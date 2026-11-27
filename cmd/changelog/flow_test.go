@@ -23,6 +23,13 @@ const (
 
 	// flowCall is how a workflow names a reusable one of its own repository.
 	flowCall = "./.github/workflows/"
+
+	// The Forgejo set, a tree copied into .forgejo.
+	forgejoTree    = "skills/changelog/references/forgejo"
+	forgejoDir     = forgejoTree + "/workflows"
+	forgejoRelease = forgejoDir + "/release.yaml"
+	forgejoCall    = "./.forgejo/workflows/"
+	forgejoLocal   = "./.forgejo/actions/"
 )
 
 // flowWorkflow is the part of a workflow the flow's files are held together by.
@@ -64,17 +71,33 @@ func artifacts(t *testing.T, name, prefix string) []string {
 	return out
 }
 
-// Every workflow release.yaml calls ships beside it, can be called, and
-// declares each input it is passed.
+// Every workflow a set's release.yaml calls ships beside it, can be called,
+// and declares each input it is passed.
 func TestReleaseFlowCallsTheWorkflowsBesideIt(t *testing.T) {
+	for _, set := range []struct{ dir, release, call string }{
+		{flowDir, flowRelease, flowCall},
+		{forgejoDir, forgejoRelease, forgejoCall},
+	} {
+		t.Run(set.dir, func(t *testing.T) {
+			if calls := checkCalls(t, set.dir, set.release, set.call); calls == 0 {
+				t.Fatalf("%s calls no workflow; this test is checking nothing", set.release)
+			}
+		})
+	}
+}
+
+// checkCalls reports each job of release calling a workflow under prefix that
+// dir does not ship as callable with the inputs passed, and counts the calls.
+func checkCalls(t *testing.T, dir, release, prefix string) int {
+	t.Helper()
 	calls := 0
-	for name, job := range readFlow(t, flowRelease).Jobs {
-		file, ok := strings.CutPrefix(job.Uses, flowCall)
+	for name, job := range readFlow(t, release).Jobs {
+		file, ok := strings.CutPrefix(job.Uses, prefix)
 		if !ok {
 			continue
 		}
 		calls++
-		call, ok := readFlow(t, path.Join(flowDir, file)).On["workflow_call"]
+		call, ok := readFlow(t, path.Join(dir, file)).On["workflow_call"]
 		if !ok {
 			t.Errorf("job %s calls %s, which carries no workflow_call trigger", name, file)
 		}
@@ -84,8 +107,57 @@ func TestReleaseFlowCallsTheWorkflowsBesideIt(t *testing.T) {
 			}
 		}
 	}
-	if calls == 0 {
-		t.Fatalf("%s calls no workflow; this test is checking nothing", flowRelease)
+	return calls
+}
+
+// Every action of its own the Forgejo set uses ships in the tree, and
+// declares each input it is passed.
+func TestForgejoFlowUsesTheActionsInItsTree(t *testing.T) {
+	uses := 0
+	for name, job := range readFlow(t, forgejoRelease).Jobs {
+		for _, step := range job.Steps {
+			dir, ok := strings.CutPrefix(step.Uses, forgejoLocal)
+			if !ok {
+				continue
+			}
+			uses++
+			var action actionFile
+			if err := yaml.Unmarshal(read(t, path.Join(forgejoTree, "actions", dir, "action.yaml")), &action); err != nil {
+				t.Fatalf("job %s uses %s: %v", name, dir, err)
+			}
+			for input := range step.With {
+				if _, ok := action.Inputs[input]; !ok {
+					t.Errorf("job %s passes %s the input %q, which it does not declare", name, dir, input)
+				}
+			}
+		}
+	}
+	if uses == 0 {
+		t.Fatalf("%s uses no action of its own; this test is checking nothing", forgejoRelease)
+	}
+}
+
+// The Forgejo set's dispatch form carries the prerelease box, and the release
+// action is handed it under the name actions/release declares.
+func TestForgejoFlowPassesPrereleaseToTheReleaseAction(t *testing.T) {
+	w := readFlow(t, forgejoRelease)
+	if _, ok := w.On["workflow_dispatch"].Inputs["prerelease"]; !ok {
+		t.Fatalf("%s declares no prerelease dispatch input", forgejoRelease)
+	}
+	var passed []string
+	for _, job := range w.Jobs {
+		for _, step := range job.Steps {
+			if strings.Contains(step.Uses, "mikluko/changelog/actions/release@") {
+				passed = append(passed, step.With["prerelease"])
+			}
+		}
+	}
+	if want := []string{"${{ inputs.prerelease }}"}; !reflect.DeepEqual(passed, want) {
+		t.Errorf("the release action is handed prerelease %q, want %q", passed, want)
+	}
+	release, _, _ := readAction(t, "actions/release/action.yaml")
+	if _, ok := release.Inputs["prerelease"]; !ok {
+		t.Error("actions/release declares no prerelease input")
 	}
 }
 

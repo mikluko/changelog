@@ -62,8 +62,11 @@ jobs:
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           -ignore 'in invalid format because owner and repo and ref should not be empty'
           -ignore 'could not read reusable workflow file'
+          -ignore 'label "nixos" is unknown'
+          -ignore 'unexpected key "enable-openid-connect"'
+          -ignore 'error while parsing reusable workflow "./.forgejo/workflows/ci.yaml"'
           .forgejo/workflows/*.yaml .github/workflows/*.yaml examples/*/workflows/*.yaml
-          skills/changelog/references/workflows/*.yaml
+          skills/changelog/references/workflows/*.yaml skills/changelog/references/forgejo/workflows/*.yaml
 
       # manifest-version evaluates flake.nix, so validating the changelog
       # needs nix. An unprivileged runner pod cannot create the build sandbox.

@@ -1,0 +1,142 @@
+name: Release
+run-name: Releasing${{ inputs.prerelease && ' a pre-release' || '' }}
+
+# A dispatch from main releases what the fragments in .changelog/ call for.
+# A release folds them into CHANGELOG.md, writes VERSION and pushes that commit
+# to main; a pre-release, vX-pre.N, leaves main as it is and is built from it
+# with VERSION overwritten in the checkout. Either is checked, built and
+# pushed to the registry before the release is created, and creating it cuts
+# the tag, so a tag exists only once everything it names does.
+#
+# A run that fails after pushing the release commit leaves a dated entry no
+# tag names; dispatching again releases that commit without folding.
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Cut the next pre-release of the version instead, and leave main as it is.
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+# The automatic token cannot write packages owned by a user, so registry access
+# trades an OIDC token for an Authorized Integration of the owner's, selected
+# by vars.REGISTRY_AUDIENCE and scoped write:package.
+enable-openid-connect: true
+
+jobs:
+  prepare:
+    runs-on: nixos
+    outputs:
+      version: ${{ steps.release.outputs.version || steps.main.outputs.version }}
+      notes: ${{ steps.release.outputs.notes || steps.main.outputs.notes }}
+      sha: ${{ steps.commit.outputs.sha || github.sha }}
+    steps:
+      - name: Refuse a branch other than main
+        if: github.ref != 'refs/heads/main'
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "::error::a release is cut from main, not $REF"
+          exit 1
+      - uses: https://github.com/actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: main
+        uses: https://sarak.sh/mikluko/changelog/actions/validate@v2
+      - name: Refuse a pre-release over an untagged release
+        if: inputs.prerelease && steps.main.outputs.due == 'true'
+        env:
+          VERSION: ${{ steps.main.outputs.version }}
+        run: |
+          echo "::error::main carries $VERSION, which no tag names yet. Release it first."
+          exit 1
+      - id: release
+        if: steps.main.outputs.due != 'true'
+        uses: https://sarak.sh/mikluko/changelog/actions/release@v2
+        with:
+          prerelease: ${{ inputs.prerelease }}
+      - name: Write VERSION
+        if: steps.release.outcome == 'success' && !inputs.prerelease
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: printf '%s\n' "$VERSION" >VERSION
+      - id: folded
+        if: steps.release.outcome == 'success' && !inputs.prerelease
+        uses: https://sarak.sh/mikluko/changelog/actions/validate@v2
+      # A push refused because main moved since the checkout publishes nothing;
+      # dispatching again folds onto the new main.
+      - id: commit
+        name: Commit the release to main
+        if: steps.folded.outcome == 'success'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@noreply.sarak.sh"
+          git add -A CHANGELOG.md .changelog VERSION
+          git commit -m "release: $VERSION"
+          git push origin HEAD:refs/heads/main
+          echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+
+  ci:
+    needs: prepare
+    uses: ./.forgejo/workflows/ci.yaml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  publish:
+    needs: [prepare, ci]
+    runs-on: nixos
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: https://github.com/actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.sha }}
+      # A no-op on a release commit; a pre-release's version reaches the flake
+      # as a staged change.
+      - name: Write VERSION
+        run: |
+          printf '%s\n' "$VERSION" >VERSION
+          git add VERSION
+      - name: Build
+        run: nix build --print-build-logs .#release
+      - uses: ./.forgejo/actions/login-registry
+        with:
+          audience: ${{ vars.REGISTRY_AUDIENCE }}
+      - name: Push
+        shell: nix develop --command bash -euo pipefail {0}
+        run: |
+          image="${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY,,}"
+          crane push --index result/image "$image:$VERSION"
+
+  tag:
+    needs: [prepare, publish]
+    runs-on: nixos
+    steps:
+      # The flake's devShell carries jq.
+      - uses: https://github.com/actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Create the release and its tag
+        shell: nix develop --command bash -euo pipefail {0}
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          NOTES: ${{ needs.prepare.outputs.notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          jq -n --arg tag "v$VERSION" --arg sha "$SHA" --arg body "$NOTES" --argjson pre "$PRERELEASE" \
+            '{tag_name: $tag, target_commitish: $sha, name: $tag, body: $body, prerelease: $pre}' |
+            curl --fail-with-body -sS -o /dev/null -X POST \
+              -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' -d @- \
+              "$GITHUB_SERVER_URL/api/v1/repos/$GITHUB_REPOSITORY/releases"
+          echo "Released **v$VERSION** from $SHA." >>"$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,41 @@
+name: Log in to the registry
+description: >-
+  Trade the job's OIDC token for registry credentials that crane, helm and
+  docker read. The job sets enable-openid-connect.
+
+inputs:
+  audience:
+    description: >-
+      The audience of the owner's Authorized Integration scoped write:package,
+      as vars.REGISTRY_AUDIENCE holds it.
+    required: true
+  registry:
+    description: The registry host. Empty is the forge's own.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # HOME on the nixos runner is shared by every job and outlives them, so
+    # the credentials go to RUNNER_TEMP, and the job's later steps find them
+    # through DOCKER_CONFIG and HELM_REGISTRY_CONFIG, which read one format.
+    - shell: bash
+      env:
+        AUDIENCE: ${{ inputs.audience }}
+        REGISTRY: ${{ inputs.registry }}
+      run: |
+        set -euo pipefail
+        host=${REGISTRY:-${GITHUB_SERVER_URL#https://}}
+        jwt=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" |
+          node -e 'let s = ""; process.stdin.on("data", d => s += d).on("end", () => process.stdout.write(JSON.parse(s).value))')
+        echo "::add-mask::$jwt"
+        dir=$(mktemp -d "$RUNNER_TEMP/registry.XXXXXX")
+        auth=$(printf 'oidc:%s' "$jwt" | base64 -w0)
+        echo "::add-mask::$auth"
+        (umask 077 && printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$host" "$auth" >"$dir/config.json")
+        {
+          echo "DOCKER_CONFIG=$dir"
+          echo "HELM_REGISTRY_CONFIG=$dir/config.json"
+        } >>"$GITHUB_ENV"

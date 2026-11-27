@@ -176,15 +176,21 @@ go run sarak.sh/mikluko/changelog/v2/cmd/changelog@latest fold
 Release notes, where the host wants some, are the released section copied out, never a second
 record.
 
-## The changelog-based release flow
+## The changelog-based release flows
 
-A repository with no release workflow of its own takes the four GitHub workflows in
-[`references/workflows/`](references/workflows/) into `.github/workflows/`. There the changelog
-decides a release, and the tag is what the release ends on, never what starts it: a push to `main`
+A repository with no release workflow of its own takes one of two sets, by its forge. In both the
+tag is what a release ends on, never what starts it.
+
+| The repository                   | Set                                                                     | Read first                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| on Forgejo, built by a Nix flake | [`references/forgejo/`](references/forgejo/) → `.forgejo/`              | [`references/release-flow-forgejo.md`](references/release-flow-forgejo.md) |
+| on GitHub                        | [`references/workflows/`](references/workflows/) → `.github/workflows/` | [`references/release-flow.md`](references/release-flow.md)                 |
+
+On Forgejo a release is dispatched by hand from `main`, with a `prerelease` box for `vX-pre.N`;
+notes are fragments, and `VERSION` carries the version to the flake. On GitHub a push to `main`
 whose newest entry names a version no tag carries opens a draft release, checks and builds the
-commit, pushes the image, and publishes the draft, which creates the tag. Read
-[`references/release-flow.md`](references/release-flow.md) before copying, adapting or debugging
-them.
+commit, pushes the image, and publishes the draft, which creates the tag. Read the set's flow page
+before copying, adapting or debugging it.
 
 ## Checking
 

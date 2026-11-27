@@ -1,0 +1,36 @@
+name: CI
+
+# On main, ci runs only as a job of release.yaml, on the commit it releases.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+
+jobs:
+  # The tests and the linter are flake checks: they run in the nix sandbox,
+  # with the toolchain flake.lock pins.
+  check:
+    runs-on: nixos
+    steps:
+      - uses: https://github.com/actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - run: nix flake check --print-build-logs
+      - run: nix build --print-build-logs --no-link .#default .#release
+
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: nixos
+    steps:
+      - uses: https://github.com/actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # A change no user sees carries no note.
+      - uses: https://sarak.sh/mikluko/changelog/actions/validate@v2
+        with:
+          warn: missing-fragment
